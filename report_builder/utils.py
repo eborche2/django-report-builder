@@ -133,6 +133,7 @@ def get_properties_from_model(model_class):
 def get_relation_fields_from_model(model_class):
     """ get related fields (m2m, fk, and reverse fk) """
     relation_fields = []
+    print(model_class)
     all_fields_names = get_all_field_names(model_class)
     for field_name in all_fields_names:
         field = copy.deepcopy(model_class._meta.get_field(field_name))
@@ -162,13 +163,14 @@ def get_all_field_names(model_class):
 def get_direct_fields_from_model(model_class):
     """ Direct, not m2m, not FK """
     direct_fields = []
-    all_fields_names = get_all_field_names(model_class)
-    for field_name in all_fields_names:
-        field = model_class._meta.get_field(field_name)
-        direct = field.concrete
-        m2m = field.many_to_many
-        if direct and not m2m and not field.is_relation:
-            direct_fields += [field]
+    if model_class != None:
+        all_fields_names = get_all_field_names(model_class)
+        for field_name in all_fields_names:
+            field = model_class._meta.get_field(field_name)
+            direct = field.concrete
+            m2m = field.many_to_many
+            if direct and not m2m and not field.is_relation:
+                direct_fields += [field]
     return direct_fields
 
 

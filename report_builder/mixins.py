@@ -534,7 +534,10 @@ class GetFieldsMixin(object):
         fields = get_direct_fields_from_model(model_class)
         properties = get_properties_from_model(model_class)
         custom_fields = get_custom_fields_from_model(model_class)
-        app_label = model_class._meta.app_label
+        if model_class != None:
+            app_label = model_class._meta.app_label
+        else:
+            app_label = "None"
 
         if field_name != '':
             field = model_class._meta.get_field(field_name)

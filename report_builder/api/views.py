@@ -3,10 +3,12 @@ from django.contrib.contenttypes.models import ContentType
 from django.shortcuts import get_object_or_404
 from django.utils.functional import cached_property
 from django.conf import settings
+from django.views.decorators.csrf import csrf_exempt
 from rest_framework import viewsets
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import IsAdminUser
+from rest_framework.authentication import SessionAuthentication
 from ..models import Report, Format, FilterField
 from .serializers import (
     ReportNestedSerializer, ReportSerializer, FormatSerializer,
@@ -23,19 +25,25 @@ def find_exact_position(fields_list, item):
         current_position += 1
     return -1
 
+class CsrfExemptSessionAuthentication(SessionAuthentication):
+
+    def enforce_csrf(self, request):
+        return  # To not perform the csrf check previously happening
 
 class ReportBuilderViewMixin:
     """ Set up explicit settings so that project defaults
     don't interfer with report builder's api. """
     pagination_class = None
-
+    authentication_classes = (CsrfExemptSessionAuthentication,)
 
 class FormatViewSet(ReportBuilderViewMixin, viewsets.ModelViewSet):
+    authentication_classes = (CsrfExemptSessionAuthentication,)
     queryset = Format.objects.all()
     serializer_class = FormatSerializer
 
 
 class FilterFieldViewSet(ReportBuilderViewMixin, viewsets.ModelViewSet):
+    authentication_classes = (CsrfExemptSessionAuthentication,)
     queryset = FilterField.objects.all()
     serializer_class = FilterFieldSerializer
 
@@ -44,17 +52,20 @@ class ContentTypeViewSet(ReportBuilderViewMixin, viewsets.ReadOnlyModelViewSet):
     """ Read only view of content types.
     Used to populate choices for new report root model.
     """
+    authentication_classes = (CsrfExemptSessionAuthentication,)
     queryset = ContentType.objects.all()
     serializer_class = ContentTypeSerializer
     permission_classes = (IsAdminUser,)
 
 
 class ReportViewSet(ReportBuilderViewMixin, viewsets.ModelViewSet):
+    authentication_classes = (CsrfExemptSessionAuthentication,)
     queryset = Report.objects.all()
     serializer_class = ReportSerializer
 
 
 class ReportNestedViewSet(ReportBuilderViewMixin, viewsets.ModelViewSet):
+    authentication_classes = (CsrfExemptSessionAuthentication,)
     queryset = Report.objects.all()
     serializer_class = ReportNestedSerializer
 
@@ -70,14 +81,18 @@ class RelatedFieldsView(ReportBuilderViewMixin, GetFieldsMixin, APIView):
     """ Get related fields from an ORM model
     """
     permission_classes = (IsAdminUser,)
+    authentication_classes = (CsrfExemptSessionAuthentication, )
 
+    @csrf_exempt
     def get_data_from_request(self, request):
         self.model = request.data['model']
         self.path = request.data['path']
         self.path_verbose = request.data.get('path_verbose', '')
         self.field = request.data['field']
+        print(self.model)
         self.model_class = ContentType.objects.get(pk=self.model).model_class()
 
+    @csrf_exempt
     def post(self, request):
         self.get_data_from_request(request)
         new_fields, model_ct, path = self.get_related_fields(
@@ -130,9 +145,11 @@ class FieldsView(RelatedFieldsView):
     """ Get direct fields and properties on an ORM model
     """
     permission_classes = (IsAdminUser,)
-
+    authentication_classes = (CsrfExemptSessionAuthentication, )
+    @csrf_exempt
     def post(self, request):
         self.get_data_from_request(request)
+        print(self.model_class)
         field_data = self.get_fields(
             self.model_class,
             self.field,
@@ -141,6 +158,7 @@ class FieldsView(RelatedFieldsView):
 
         # External packages might cause duplicates. This clears it up
         new_set = []
+
         for i in field_data['fields']:
             if i not in new_set:
                 new_set.append(i)
@@ -248,7 +266,7 @@ class FieldsView(RelatedFieldsView):
 
 class GenerateReport(ReportBuilderViewMixin, DataExportMixin, APIView):
     permission_classes = (IsAdminUser,)
-
+    authentication_classes = (CsrfExemptSessionAuthentication,)
     def get(self, request, report_id=None):
         return self.post(request, report_id=report_id)
 
